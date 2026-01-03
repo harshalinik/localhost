@@ -1,0 +1,62 @@
+
+import org.pcap4j.core.*;
+import org.pcap4j.packet.*;
+
+import java.util.List;
+public class CapturePacketsAdvanced {
+    public static void main(String[] args) {
+        try {
+            // Step 1: List all available interfaces
+            List<PcapNetworkInterface> devices = Pcaps.findAllDevs();
+            if (devices == null || devices.isEmpty()) {
+                System.out.println("No network interfaces found!");
+                return;
+            }
+            System.out.println("Available Network Interfaces:");
+            int index = 0;
+            for (PcapNetworkInterface dev : devices) {
+                System.out.println(index + ": " + dev.getName() + " (" + dev.getDescription() + ")");
+                index++;
+            }
+            // Step 2: Select interface (0 = first)
+            PcapNetworkInterface nif = devices.get(3);
+            System.out.println("\nUsing interface: " + nif.getName());
+            // Step 3: Open interface
+            PcapHandle handle = nif.openLive(
+                    65536,   // snapLen
+                    PcapNetworkInterface.PromiscuousMode.PROMISCUOUS,
+                    10       // timeout ms
+            );
+            System.out.println("\nCapturing packets for 20 seconds...\n");
+            long end = System.currentTimeMillis() + 20000;
+            while (System.currentTimeMillis() < end) {
+                Packet packet = handle.getNextPacket();  // safe
+                if (packet == null) continue;
+                System.out.println("---- PACKET ----");
+                // IPv4
+                if (packet.contains(IpV4Packet.class)) {
+                    IpV4Packet ip = packet.get(IpV4Packet.class);
+                    System.out.println("Source IP: " + ip.getHeader().getSrcAddr());
+                    System.out.println("Destination IP: " + ip.getHeader().getDstAddr());
+                    System.out.println("Protocol: " + ip.getHeader().getProtocol());
+                    System.out.println("Packet Length: " + ip.length());
+                }
+                // Protocols
+                if (packet.contains(TcpPacket.class)) {
+                    System.out.println(">>> TCP Packet");
+                }
+                else if (packet.contains(UdpPacket.class)) {
+                    System.out.println(">>> UDP Packet");
+                }
+                else if (packet.contains(IcmpV4CommonPacket.class)) {
+                    System.out.println(">>> ICMP Packet");
+                }
+                System.out.println("----------------\n");
+            }
+            handle.close();
+            System.out.println("Packet capture finished.");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+}
